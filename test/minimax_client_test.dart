@@ -35,4 +35,62 @@ void main() {
     expect(scores[1], containsPair('type', 'career'));
     expect(scores[1], containsPair('score', 6));
   });
+
+  test('direct MiniMax mode parses Anthropic-compatible model output',
+      () async {
+    late Uri requestUri;
+    late Map<String, dynamic> payload;
+    final client = MiniMaxProxyClient(
+      directApiKey: 'test-key',
+      directBaseUrl: 'https://api.minimax.io/anthropic',
+      httpClient: MockClient((request) async {
+        requestUri = request.url;
+        payload = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(request.headers['x-api-key'], 'test-key');
+        return http.Response(
+          jsonEncode({
+            'content': [
+              {
+                'type': 'text',
+                'text': jsonEncode({
+                  'recommendations': [
+                    {
+                      'dimension': 'health',
+                      'score': 84,
+                      'title': 'Stabilize afternoon energy',
+                      'reason':
+                          'Your history mentions afternoon energy dips, so the recommendation should target that pattern directly.',
+                      'suggestions': [
+                        'Move a short walk to the first energy dip.',
+                        'Add water before the afternoon slump starts.'
+                      ],
+                      'ctaLabel': 'Anchor reset'
+                    }
+                  ]
+                }),
+              }
+            ]
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final recommendations = await client.generateRecommendations(
+      scores: {
+        LifeDimensionType.health: const LifeDimensionScore(
+          type: LifeDimensionType.health,
+          score: 5,
+          baseline: 7,
+        ),
+      },
+      answers: const [],
+    );
+
+    expect(
+        requestUri.toString(), 'https://api.minimax.io/anthropic/v1/messages');
+    expect(payload['model'], 'MiniMax/M2.7');
+    expect(recommendations.single.title, 'Stabilize afternoon energy');
+  });
 }
