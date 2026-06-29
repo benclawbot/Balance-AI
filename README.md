@@ -2,7 +2,7 @@
 
 ![Balance AI hero banner](assets/images/balance_ai_hero_banner.png)
 
-Balance AI is a life-balance app for assessing eight life dimensions, tracking historical updates, visualizing a multi-color life wheel, and turning those updates into contextual MiniMax-powered recommendations and growth actions.
+Balance AI is a life-balance app for assessing eight life dimensions, tracking historical updates, visualizing a multi-color life wheel, and turning those updates into contextual AI-powered recommendations and growth actions.
 
 The app goal is simple: help a user understand where life feels balanced or strained, save richer notes over time, and convert that history into specific, low-risk next steps.
 
