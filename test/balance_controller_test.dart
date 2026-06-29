@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:balance_ai/data/minimax_client.dart';
 import 'package:balance_ai/domain/life_dimension.dart';
+import 'package:balance_ai/domain/models.dart';
 import 'package:balance_ai/state/balance_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -119,5 +120,56 @@ void main() {
     expect(afterNewHistory.recommendations.first.title,
         'Use your afternoon energy pattern');
     expect(afterNewHistory.adviceIsStale, isTrue);
+  });
+
+  test('growth actions can be reordered', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final controller = container.read(balanceControllerProvider.notifier);
+    final originalActions = container.read(balanceControllerProvider).actions;
+
+    controller.reorderAction(0, originalActions.length - 1);
+
+    final reorderedActions = container.read(balanceControllerProvider).actions;
+    expect(reorderedActions.last.id, originalActions.first.id);
+    expect(reorderedActions.first.id, originalActions[1].id);
+  });
+
+  test('advice suggestions can be added to growth focus once', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final controller = container.read(balanceControllerProvider.notifier);
+    const recommendation = Recommendation(
+      dimension: LifeDimensionType.mind,
+      score: 72,
+      title: 'Mental Clarity',
+      reason: 'Reduce context switching.',
+      suggestions: ['Mute non-critical notifications for 90 minutes.'],
+      ctaLabel: 'Enable Focus Mode',
+    );
+
+    final firstAdd = controller.addRecommendationSuggestionToFocus(
+      recommendation: recommendation,
+      suggestion: recommendation.suggestions.first,
+    );
+    final duplicateAdd = controller.addRecommendationSuggestionToFocus(
+      recommendation: recommendation,
+      suggestion: recommendation.suggestions.first,
+    );
+
+    final matchingActions = container
+        .read(balanceControllerProvider)
+        .actions
+        .where((item) =>
+            item.dimension == LifeDimensionType.mind &&
+            item.title == recommendation.suggestions.first)
+        .toList();
+
+    expect(firstAdd, isTrue);
+    expect(duplicateAdd, isFalse);
+    expect(matchingActions, hasLength(1));
+    expect(matchingActions.single.category, 'Mental Clarity');
   });
 }

@@ -127,6 +127,45 @@ class BalanceController extends Notifier<BalanceState> {
     unawaitedPersist();
   }
 
+  bool addRecommendationSuggestionToFocus({
+    required Recommendation recommendation,
+    required String suggestion,
+  }) {
+    final normalizedSuggestion = suggestion.trim();
+    if (normalizedSuggestion.isEmpty) return false;
+
+    final alreadyAdded = state.actions.any(
+      (item) =>
+          item.dimension == recommendation.dimension &&
+          item.title.trim().toLowerCase() == normalizedSuggestion.toLowerCase(),
+    );
+    if (alreadyAdded) return false;
+
+    final action = ActionItem(
+      id: 'advice-${recommendation.dimension.slug}-${_stableActionSuffix(normalizedSuggestion)}',
+      title: normalizedSuggestion,
+      category: recommendation.title,
+      dimension: recommendation.dimension,
+    );
+
+    state =
+        state.copyWith(actions: [...state.actions, action], lastError: null);
+    unawaitedPersist();
+    return true;
+  }
+
+  void reorderAction(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= state.actions.length) return;
+
+    final actions = [...state.actions];
+    final safeTargetIndex = newIndex.clamp(0, actions.length - 1).toInt();
+    final movedAction = actions.removeAt(oldIndex);
+    actions.insert(safeTargetIndex, movedAction);
+
+    state = state.copyWith(actions: actions, lastError: null);
+    unawaitedPersist();
+  }
+
   Future<void> updateScore(LifeDimensionType dimension, double score) async {
     final existing = state.dimensions[dimension] ??
         LifeDimensionScore(type: dimension, score: score);
@@ -135,12 +174,26 @@ class BalanceController extends Notifier<BalanceState> {
       dimension: existing.copyWith(score: score),
     };
     state = state.copyWith(
-        dimensions: dimensions, selectedDimension: dimension, lastError: null);
+      dimensions: dimensions,
+      selectedDimension: dimension,
+      lastError: null,
+    );
     await _persist();
   }
 
   void unawaitedPersist() {
     _persist();
+  }
+
+  String _stableActionSuffix(String value) {
+    final normalized = value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    if (normalized.isEmpty) {
+      return DateTime.now().microsecondsSinceEpoch.toString();
+    }
+    return normalized.length <= 48 ? normalized : normalized.substring(0, 48);
   }
 
   LifeDimensionType _nextDimensionAfter(LifeDimensionType dimension) {

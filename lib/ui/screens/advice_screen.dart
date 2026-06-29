@@ -98,7 +98,26 @@ class _AdviceScreenState extends ConsumerState<AdviceScreen> {
               ...state.recommendations.map(
                 (recommendation) => Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: RecommendationCard(recommendation: recommendation),
+                  child: RecommendationCard(
+                    recommendation: recommendation,
+                    focusActions: state.actions,
+                    onAddSuggestion: (suggestion) {
+                      final added =
+                          controller.addRecommendationSuggestionToFocus(
+                        recommendation: recommendation,
+                        suggestion: suggestion,
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            added
+                                ? 'Added to Today\'s Focus.'
+                                : 'Already in Today\'s Focus.',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -160,8 +179,9 @@ class _AdviceScreenState extends ConsumerState<AdviceScreen> {
   void _scheduleHistoryRefreshIfNeeded(
       BalanceState state, BalanceController controller) {
     final answerCount = state.answers.length;
-    if (answerCount == 0 || state.isGeneratingAdvice || !state.adviceIsStale)
+    if (answerCount == 0 || state.isGeneratingAdvice || !state.adviceIsStale) {
       return;
+    }
     if (_autoRefreshAttemptedForAnswerCount == answerCount) return;
 
     _autoRefreshAttemptedForAnswerCount = answerCount;
@@ -203,9 +223,16 @@ class _AdviceScreenState extends ConsumerState<AdviceScreen> {
 }
 
 class RecommendationCard extends StatelessWidget {
-  const RecommendationCard({super.key, required this.recommendation});
+  const RecommendationCard({
+    super.key,
+    required this.recommendation,
+    required this.focusActions,
+    required this.onAddSuggestion,
+  });
 
   final Recommendation recommendation;
+  final List<ActionItem> focusActions;
+  final ValueChanged<String> onAddSuggestion;
 
   @override
   Widget build(BuildContext context) {
@@ -247,8 +274,14 @@ class RecommendationCard extends StatelessWidget {
           const SizedBox(height: 18),
           Text('SUGGESTIONS', style: Theme.of(context).textTheme.labelSmall),
           const SizedBox(height: 10),
-          ...recommendation.suggestions.map(
-            (suggestion) => Padding(
+          ...recommendation.suggestions.map((suggestion) {
+            final isFocused = focusActions.any(
+              (item) =>
+                  item.dimension == recommendation.dimension &&
+                  item.title.trim().toLowerCase() ==
+                      suggestion.trim().toLowerCase(),
+            );
+            return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,10 +295,20 @@ class RecommendationCard extends StatelessWidget {
                   Expanded(
                       child: Text(suggestion,
                           style: Theme.of(context).textTheme.bodyMedium)),
+                  const SizedBox(width: 10),
+                  OutlinedButton.icon(
+                    onPressed:
+                        isFocused ? null : () => onAddSuggestion(suggestion),
+                    icon: Icon(
+                      isFocused ? Icons.check_rounded : Icons.add_rounded,
+                      size: 18,
+                    ),
+                    label: Text(isFocused ? 'ADDED' : 'FOCUS'),
+                  ),
                 ],
               ),
-            ),
-          ),
+            );
+          }),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: () {},
